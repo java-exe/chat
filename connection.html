@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Chat Client</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f4f8; /* Light gray-blue background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Ensure body takes full viewport height */
+            margin: 0;
+            padding: 10px; /* Reduced padding for more screen space */
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 1400px; /* Even wider for more screen space */
+            min-height: 90vh; /* Make the container take up most of the vertical space */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-main {
+            display: flex;
+            flex-direction: column; /* Default for small screens */
+            flex-grow: 1;
+        }
+        @media (min-width: 768px) { /* Medium screens and up */
+            .chat-main {
+                flex-direction: row; /* Side-by-side for larger screens */
+            }
+        }
+        .chat-area-wrapper {
+            flex-grow: 1;
+            height: 700px; /* Increased height for chat area */
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #f8fafd; /* Very light blue for chat background */
+            border-bottom: 1px solid #e0e7eb;
+            padding: 15px;
+            scroll-behavior: smooth;
+            font-size: 0.875rem; /* text-sm */
+            line-height: 1.5;
+        }
+        .message-line {
+            padding: 4px 0;
+            border-bottom: 1px dotted #e2e8f0; /* Subtle separator */
+        }
+        .message-line:last-child {
+            border-bottom: none;
+        }
+        .online-users-panel {
+            width: 100%; /* Default to full width on small screens */
+            min-height: 300px; /* Increased minimum height for user list on small screens */
+            border-top: 1px solid #e0e7eb;
+            background-color: #f0f4f8;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        @media (min-width: 768px) {
+            .online-users-panel {
+                width: 350px; /* Increased fixed width for larger screens */
+                min-height: 700px; /* Match chat area height */
+                border-left: 1px solid #e0e7eb;
+                border-top: none; /* Remove top border if it's now on the side */
+            }
+        }
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .user-list-item {
+            padding: 6px 8px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            transition: background-color 0.2s ease;
+        }
+        .user-list-item:hover {
+            background-color: #e2e8f0;
+        }
+        .user-list-item.selected {
+            background-color: #bfdbfe; /* Tailwind blue-200 */
+            font-weight: 600;
+        }
+        .user-list-item.self {
+            background-color: #dbeafe; /* Tailwind blue-100 */
+            font-weight: 600;
+        }
+        .message-type-info { color: #6b7280; font-style: italic; } /* gray-500 */
+        .message-type-error { color: #dc2626; font-weight: bold; } /* red-600 */
+        .message-type-server { color: #ea580c; font-style: italic; } /* orange-600 */
+        .message-type-broadcast { color: #059669; } /* emerald-600 */
+        .message-type-private { color: #9333ea; } /* purple-600 */
+        .message-type-self { color: #1d4ed8; font-weight: 500; } /* blue-700 */
+
+        /* Button styles */
+        .btn-primary {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .btn-primary:hover {
+            background-color: #1d4ed8; /* blue-700 */
+            transform: translateY(-1px);
+        }
+        .btn-primary:disabled {
+            background-color: #93c5fd; /* blue-300 */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #dc2626; /* red-600 */
+            transform: translateY(-1px);
+        }
+        .btn-secondary:disabled {
+            background-color: #fca5a5; /* red-300 */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .toggle-btn {
+            background-color: #e0f2f7; /* Light teal */
+            color: #0d9488; /* Dark teal */
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+            text-align: center;
+        }
+        .toggle-btn.active {
+            background-color: #0d9488; /* Dark teal */
+            color: white;
+        }
+        .toggle-btn:hover:not(.active) {
+            background-color: #ccfbf1; /* Lighter teal on hover */
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container">
+        <!-- Top Panel: Username, IP, Connect/Disconnect, Private Chat Mode -->
+        <div class="p-6 bg-white border-b border-gray-200">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <label for="usernameInput" class="text-gray-700 font-medium whitespace-nowrap">Your Name:</label>
+                    <input type="text" id="usernameInput" value="Guest"
+                           class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-700">
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <label for="ipAddressInput" class="text-gray-700 font-medium whitespace-nowrap">Server IP:</label>
+                    <input type="text" id="ipAddressInput" placeholder="e.g., 145.40.51.159"
+                           class="flex-grow p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-700">
+                </div>
+                <button id="connectButton" class="btn-primary w-full md:w-auto">Connect</button>
+                <button id="disconnectButton" class="btn-secondary w-full md:w-auto" disabled>Disconnect</button>
+            </div>
+            <div class="flex items-center justify-center gap-4 mt-2">
+                <div id="privateChatToggle" class="toggle-btn cursor-pointer" data-active="false">Private Chat Mode</div>
+                <span id="selectedRecipientLabel" class="text-gray-600 font-medium">Chatting: BROADCAST</span>
+            </div>
+        </div>
+
+        <!-- Main Chat Area and Online Users List -->
+        <div class="chat-main">
+            <!-- Left: Chat Area -->
+            <div class="chat-area-wrapper">
+                <div id="messageDisplayArea" class="chat-area">
+                    <div class="message-line message-type-info">Welcome to the chat! Enter your name and server IP to connect.</div>
+                </div>
+            </div>
+
+            <!-- Right: Online Users List -->
+            <div class="online-users-panel">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Online Users</h3>
+                <ul id="onlineUsersList" class="user-list">
+                    <!-- Users will be dynamically added here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom: Message Input -->
+        <div class="p-4 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center gap-4">
+            <input type="text" id="messageInput" placeholder="Type your message..." disabled
+                   class="flex-grow p-3 rounded-md border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-300 text-gray-800 w-full">
+            <button id="sendButton" class="btn-primary w-full sm:w-auto" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        // UI Elements
+        const usernameInput = document.getElementById('usernameInput');
+        const ipAddressInput = document.getElementById('ipAddressInput');
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const privateChatToggle = document.getElementById('privateChatToggle');
+        const selectedRecipientLabel = document.getElementById('selectedRecipientLabel');
+        const messageDisplayArea = document.getElementById('messageDisplayArea');
+        const onlineUsersList = document.getElementById('onlineUsersList');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // WebSocket and Chat State
+        let websocket = null;
+        let myUsername = '';
+        let privateRecipient = null; // Stores the username of the selected private chat recipient
+
+        // Function to display messages in the chat area with specific styling
+        function displayMessage(message, type = 'info') {
+            const messageLine = document.createElement('div');
+            messageLine.classList.add('message-line');
+
+            // Apply specific CSS classes based on message type
+            switch (type) {
+                case 'error': messageLine.classList.add('message-type-error'); break;
+                case 'server_info': messageLine.classList.add('message-type-server'); break;
+                case 'broadcast': messageLine.classList.add('message-type-broadcast'); break;
+                case 'private_msg': messageLine.classList.add('message-type-private'); break;
+                case 'self_sent': messageLine.classList.add('message-type-self'); break;
+                default: messageLine.classList.add('message-type-info'); break;
+            }
+
+            messageLine.textContent = message;
+            messageDisplayArea.appendChild(messageLine);
+            messageDisplayArea.scrollTop = messageDisplayArea.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // Function to update the list of online users
+        function updateOnlineUsersList(userListString) {
+            onlineUsersList.innerHTML = ''; // Clear existing list
+            if (!userListString) return;
+
+            let users = userListString.split(',').map(u => u.trim()).filter(u => u !== '');
+
+            // Sort users, putting current user at the top
+            users.sort((a, b) => {
+                if (a === myUsername) return -1;
+                if (b === myUsername) return 1;
+                return a.localeCompare(b);
+            });
+
+            users.forEach(user => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('user-list-item');
+                listItem.textContent = user;
+
+                if (user === myUsername) {
+                    listItem.classList.add('self'); // Style for self
+                } else {
+                    // Add click listener for private chat selection
+                    listItem.addEventListener('click', () => {
+                        // Clear previous selection
+                        document.querySelectorAll('.user-list-item').forEach(item => {
+                            item.classList.remove('selected');
+                        });
+                        listItem.classList.add('selected'); // Mark as selected
+                        privateRecipient = user;
+                        privateChatToggle.classList.add('active'); // Activate toggle button visually
+                        privateChatToggle.dataset.active = 'true';
+                        selectedRecipientLabel.textContent = `Chatting with: ${privateRecipient}`;
+                        displayMessage(`CLIENT: Private messages will now be sent to ${privateRecipient}.`, 'info');
+                    });
+
+                    // If this user was previously selected for private chat, re-select them
+                    if (user === privateRecipient) {
+                        listItem.classList.add('selected');
+                    }
+                }
+                onlineUsersList.appendChild(listItem);
+            });
+        }
+
+        // Function to send messages (broadcast or private)
+        function sendMessage() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                const message = messageInput.value.trim();
+                if (message === '') return;
+
+                let fullMessage;
+                if (privateChatToggle.dataset.active === 'true' && privateRecipient) {
+                    fullMessage = `/msg ${privateRecipient} ${message}`;
+                    // For private messages, display immediately as "self-sent"
+                    displayMessage(`You (to ${privateRecipient}): ${message}`, 'self_sent');
+                } else {
+                    fullMessage = message; // No special prefix for broadcast
+                    // For broadcast messages, DO NOT display immediately.
+                    // Let the server echo it back, and it will be displayed by onmessage handler.
+                }
+                websocket.send(fullMessage);
+                messageInput.value = ''; // Clear input field
+            } else {
+                displayMessage("Not connected to server. Please connect first.", 'error');
+            }
+        }
+
+        // Function to disconnect from the server
+        function disconnectClient() {
+            if (websocket) {
+                websocket.close(); // Attempt to close if not already closed
+            }
+            websocket = null;
+            myUsername = '';
+            privateRecipient = null;
+            onlineUsersList.innerHTML = '';
+            privateChatToggle.classList.remove('active');
+            privateChatToggle.dataset.active = 'false';
+            selectedRecipientLabel.textContent = "Chatting: BROADCAST";
+
+            // Update UI state
+            connectButton.disabled = false;
+            disconnectButton.disabled = true;
+            usernameInput.disabled = false;
+            ipAddressInput.disabled = false;
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            usernameInput.focus();
+            displayMessage("Disconnected from server.", 'info');
+        }
+
+        // Event Listeners
+        connectButton.addEventListener('click', () => {
+            const ip = ipAddressInput.value.trim();
+            const username = usernameInput.value.trim();
+
+            if (ip === '') {
+                displayMessage("Please enter a server IP address.", 'error');
+                return;
+            }
+            if (username === '') {
+                displayMessage("Please enter your name.", 'error');
+                return;
+            }
+
+            if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+                displayMessage("Already connected or connecting.", 'info');
+                return;
+            }
+
+            myUsername = username; // Set client's username
+            displayMessage(`Attempting to connect to ws://${ip}:12345 as ${myUsername}...`, 'info');
+            
+            // Disable UI during connection attempt
+            connectButton.disabled = true;
+            disconnectButton.disabled = true;
+            usernameInput.disabled = true;
+            ipAddressInput.disabled = true;
+
+            try {
+                // This client connects to a basic WebSocket server (ws://).
+                // If you want a secure connection (wss://), the server side would need
+                // to implement WebSocket Secure (WSS) protocol, which is more complex
+                // than a simple SSL/TLS socket server.
+                websocket = new WebSocket(`ws://${ip}:12345`);
+
+                websocket.onopen = () => {
+                    displayMessage("Connected to server! Sending username...", 'info');
+                    websocket.send(myUsername); // Send username immediately after connection
+                    // Enable chat UI
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    disconnectButton.disabled = false;
+                    messageInput.focus();
+                };
+
+                websocket.onmessage = (event) => {
+                    const rawMessage = event.data;
+                    console.log("Received:", rawMessage); // For debugging
+
+                    // Process incoming messages based on server prefixes
+                    if (rawMessage.startsWith("BROADCAST:")) {
+                        const content = rawMessage.substring("BROADCAST:".length);
+                        displayMessage(content, 'broadcast');
+                    } else if (rawMessage.startsWith("PRIVATE_MSG:")) {
+                        const content = rawMessage.substring("PRIVATE_MSG:".length);
+                        displayMessage(`PRIVATE from ${content}`, 'private_msg');
+                    } else if (rawMessage.startsWith("USER_LIST_UPDATE:")) {
+                        const userListString = rawMessage.substring("USER_LIST_UPDATE:".length);
+                        updateOnlineUsersList(userListString);
+                    } else if (rawMessage.startsWith("SERVER: ")) {
+                        displayMessage(rawMessage, 'server_info');
+                    } else {
+                        // Fallback for any other unexpected messages
+                        displayMessage(`RAW: ${rawMessage}`, 'info');
+                    }
+                };
+
+                websocket.onclose = (event) => {
+                    displayMessage(`Disconnected from server. Code: ${event.code}, Reason: ${event.reason || 'N/A'}`, 'info');
+                    disconnectClient();
+                };
+
+                websocket.onerror = (error) => {
+                    displayMessage("WebSocket Error. Check console for details.", 'error');
+                    console.error("WebSocket error:", error);
+                    disconnectClient();
+                };
+
+            } catch (e) {
+                displayMessage(`Failed to create WebSocket: ${e.message}`, 'error');
+                console.error("WebSocket creation error:", e);
+                disconnectClient();
+            }
+        });
+
+        disconnectButton.addEventListener('click', disconnectClient);
+
+        sendButton.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        privateChatToggle.addEventListener('click', () => {
+            const isActive = privateChatToggle.dataset.active === 'true';
+            if (isActive) {
+                // Toggling off private chat
+                privateChatToggle.classList.remove('active');
+                privateChatToggle.dataset.active = 'false';
+                privateRecipient = null;
+                document.querySelectorAll('.user-list-item').forEach(item => {
+                    if (item.classList.contains('selected')) {
+                        item.classList.remove('selected');
+                    }
+                });
+                selectedRecipientLabel.textContent = "Chatting: BROADCAST";
+                displayMessage("CLIENT: Switched to broadcast chat.", 'info');
+            } else {
+                // Toggling on private chat - require a recipient
+                if (!privateRecipient || privateRecipient === myUsername) {
+                    displayMessage("Please select a user from the list for private chat first.", 'error');
+                } else {
+                    privateChatToggle.classList.add('active');
+                    privateChatToggle.dataset.active = 'true';
+                    selectedRecipientLabel.textContent = `Chatting with: ${privateRecipient}`;
+                    displayMessage(`CLIENT: Private messages will now be sent to ${privateRecipient}.`, 'info');
+                }
+            }
+        });
+
+        // Ensure disconnection when the browser tab is closed
+        window.addEventListener('beforeunload', () => {
+            disconnectClient();
+        });
+    </script>
+</body>
+</html>
