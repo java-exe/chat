@@ -43,16 +43,29 @@
             height: 700px; /* Increased height for chat area */
             display: flex;
             flex-direction: column;
+            border-right: 1px solid #e0e7eb; /* Separator for chat and user list */
+        }
+        .chat-display-wrapper { /* New wrapper for tab content areas */
+            flex-grow: 1;
+            position: relative; /* For absolute positioning of chat areas */
+            overflow: hidden; /* Hide overflowing content */
         }
         .chat-area {
-            flex-grow: 1;
+            position: absolute; /* Position chat areas absolutely within wrapper */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             overflow-y: auto;
             background-color: #f8fafd; /* Very light blue for chat background */
-            border-bottom: 1px solid #e0e7eb;
-            padding: 15px;
+            padding: 15px; /* Padding inside the scrollable area */
             scroll-behavior: smooth;
             font-size: 0.875rem; /* text-sm */
             line-height: 1.5;
+            display: none; /* Hidden by default, shown by JS */
+        }
+        .chat-area.active {
+            display: block; /* Show active chat area */
         }
         .message-line {
             padding: 4px 0;
@@ -95,22 +108,84 @@
         .user-list-item:hover {
             background-color: #e2e8f0;
         }
-        .user-list-item.selected {
-            background-color: #bfdbfe; /* Tailwind blue-200 */
-            font-weight: 600;
-        }
         .user-list-item.self {
             background-color: #dbeafe; /* Tailwind blue-100 */
             font-weight: 600;
         }
+        .user-list-item.selected-private { /* Style for selected private chat user */
+            background-color: #bfdbfe; /* Tailwind blue-200 */
+            font-weight: 600;
+            border: 2px solid #2563eb; /* Blue-600 border */
+        }
+
+        /* Message Type Styles - Adapted for separate views */
         .message-type-info { color: #6b7280; font-style: italic; } /* gray-500 */
         .message-type-error { color: #dc2626; font-weight: bold; } /* red-600 */
         .message-type-server { color: #ea580c; font-style: italic; } /* orange-600 */
-        .message-type-broadcast { color: #059669; } /* emerald-600 */
-        .message-type-private { color: #9333ea; } /* purple-600 */
-        .message-type-self { color: #1d4ed8; font-weight: 500; } /* blue-700 */
+        .message-type-broadcast-msg { color: #059669; } /* emerald-600 */
+        .message-type-private-msg { color: #9333ea; } /* purple-600 */
+        .message-type-self-sent-broadcast { color: #059669; font-weight: 500; font-style: italic; } /* emerald-600, italic for self broadcast */
+        .message-type-self-sent-private { color: #1d4ed8; font-weight: 500; } /* blue-700 for self-sent private */
 
-        /* Button styles */
+        /* Tabs Specific Styles */
+        .tabs-container {
+            display: flex;
+            flex-wrap: wrap; /* Allow tabs to wrap on smaller screens */
+            background-color: #e2e8f0; /* Light gray */
+            border-bottom: 1px solid #cbd5e0; /* Gray-300 */
+            padding: 0 10px; /* Horizontal padding */
+            overflow-x: auto; /* Allow horizontal scrolling if many tabs */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            scrollbar-width: none; /* Hide scrollbar for Firefox */
+            -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+        }
+        .tabs-container::-webkit-scrollbar { /* Hide scrollbar for Chrome/Safari */
+            display: none;
+        }
+        .tab-button {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            background-color: #f8fafd; /* Match chat area background */
+            color: #4a5568; /* Gray-700 */
+            font-weight: 600;
+            margin-right: 5px;
+            margin-top: 5px; /* Spacing between tabs */
+            margin-bottom: -1px; /* Overlap border */
+            border: 1px solid #e2e8f0; /* Light border */
+            border-bottom: none;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            white-space: nowrap; /* Prevent tab names from wrapping */
+            display: flex;
+            align-items: center;
+        }
+        .tab-button:hover:not(.active) {
+            background-color: #edf2f7; /* Lighter on hover */
+            color: #2d3748; /* Darker text */
+        }
+        .tab-button.active {
+            background-color: #f8fafd; /* Active tab stays same background */
+            color: #2563eb; /* Blue-600 for active tab text */
+            border-color: #2563eb; /* Blue border for active tab */
+            border-bottom: 1px solid #f8fafd; /* Match background to hide bottom border */
+        }
+        .tab-close-button {
+            background: none;
+            border: none;
+            color: inherit; /* Inherit color from parent tab-button */
+            font-size: 0.8rem;
+            margin-left: 8px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+        .tab-close-button:hover {
+            opacity: 1;
+            color: #ef4444; /* Red on hover for close button */
+        }
+
+        /* Button styles (already existing) */
         .btn-primary {
             background-color: #2563eb; /* blue-600 */
             color: white;
@@ -148,28 +223,11 @@
             cursor: not-allowed;
             box-shadow: none;
         }
-
-        .toggle-btn {
-            background-color: #e0f2f7; /* Light teal */
-            color: #0d9488; /* Dark teal */
-            font-weight: 600;
-            padding: 8px 12px;
-            border-radius: 6px;
-            transition: background-color 0.2s ease;
-            text-align: center;
-        }
-        .toggle-btn.active {
-            background-color: #0d9488; /* Dark teal */
-            color: white;
-        }
-        .toggle-btn:hover:not(.active) {
-            background-color: #ccfbf1; /* Lighter teal on hover */
-        }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="container">
-        <!-- Top Panel: Username, IP, Connect/Disconnect, Private Chat Mode -->
+        <!-- Top Panel: Username, IP, Connect/Disconnect -->
         <div class="p-6 bg-white border-b border-gray-200">
             <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
                 <div class="flex items-center gap-2 w-full md:w-auto">
@@ -185,18 +243,29 @@
                 <button id="connectButton" class="btn-primary w-full md:w-auto">Connect</button>
                 <button id="disconnectButton" class="btn-secondary w-full md:w-auto" disabled>Disconnect</button>
             </div>
-            <div class="flex items-center justify-center gap-4 mt-2">
-                <div id="privateChatToggle" class="toggle-btn cursor-pointer" data-active="false">Private Chat Mode</div>
-                <span id="selectedRecipientLabel" class="text-gray-600 font-medium">Chatting: BROADCAST</span>
-            </div>
         </div>
 
         <!-- Main Chat Area and Online Users List -->
         <div class="chat-main">
-            <!-- Left: Chat Area -->
+            <!-- Left: Chat Tabs and Display Areas -->
             <div class="chat-area-wrapper">
-                <div id="messageDisplayArea" class="chat-area">
-                    <div class="message-line message-type-info">Welcome to the chat! Enter your name and server IP to connect.</div>
+                <div id="tabsContainer" class="tabs-container">
+                    <button id="tabButton_broadcast" class="tab-button active" data-tab-name="broadcast">Broadcast</button>
+                    <!-- Private chat tabs will be added here dynamically -->
+                </div>
+                <div id="chatDisplayWrapper" class="chat-display-wrapper">
+                    <!-- Broadcast Chat Area (always exists) -->
+                    <div id="chatArea_broadcast" class="chat-area active">
+                        <div class="message-line message-type-info">Welcome to the chat! Enter your name and server IP to connect.</div>
+                        <div class="message-line message-type-info">Click an online user to start a private chat.</div>
+                    </div>
+                    <!-- Private chat areas will be added here dynamically -->
+                </div>
+                <!-- Shared Message Input -->
+                <div class="p-4 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center gap-4">
+                    <input type="text" id="messageInput" placeholder="Type your message..." disabled
+                           class="flex-grow p-3 rounded-md border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-300 text-gray-800 w-full">
+                    <button id="sendMessageButton" class="btn-primary w-full sm:w-auto" disabled>Send</button>
                 </div>
             </div>
 
@@ -208,13 +277,6 @@
                 </ul>
             </div>
         </div>
-
-        <!-- Bottom: Message Input -->
-        <div class="p-4 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center gap-4">
-            <input type="text" id="messageInput" placeholder="Type your message..." disabled
-                   class="flex-grow p-3 rounded-md border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-300 text-gray-800 w-full">
-            <button id="sendButton" class="btn-primary w-full sm:w-auto" disabled>Send</button>
-        </div>
     </div>
 
     <script>
@@ -223,20 +285,26 @@
         const ipAddressInput = document.getElementById('ipAddressInput');
         const connectButton = document.getElementById('connectButton');
         const disconnectButton = document.getElementById('disconnectButton');
-        const privateChatToggle = document.getElementById('privateChatToggle');
-        const selectedRecipientLabel = document.getElementById('selectedRecipientLabel');
-        const messageDisplayArea = document.getElementById('messageDisplayArea');
-        const onlineUsersList = document.getElementById('onlineUsersList');
+
+        // Main Chat Elements (now shared)
+        const tabsContainer = document.getElementById('tabsContainer');
+        const chatDisplayWrapper = document.getElementById('chatDisplayWrapper'); // Wrapper for chat areas
+        const broadcastChatArea = document.getElementById('chatArea_broadcast');
         const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
+        const sendMessageButton = document.getElementById('sendMessageButton');
+
+        // Online Users List Elements
+        const onlineUsersList = document.getElementById('onlineUsersList');
 
         // WebSocket and Chat State
         let websocket = null;
         let myUsername = '';
-        let privateRecipient = null; // Stores the username of the selected private chat recipient
+        let activeTab = 'broadcast'; // Tracks which tab is currently active
+        // Map to store private chat message elements and their history
+        const privateChatAreas = new Map(); // Map<username, HTMLElement of chat area>
 
-        // Function to display messages in the chat area with specific styling
-        function displayMessage(message, type = 'info') {
+        // Function to display messages in the respective chat areas
+        function displayMessage(message, type = 'info', targetTabName = 'broadcast') {
             const messageLine = document.createElement('div');
             messageLine.classList.add('message-line');
 
@@ -244,15 +312,31 @@
             switch (type) {
                 case 'error': messageLine.classList.add('message-type-error'); break;
                 case 'server_info': messageLine.classList.add('message-type-server'); break;
-                case 'broadcast': messageLine.classList.add('message-type-broadcast'); break;
-                case 'private_msg': messageLine.classList.add('message-type-private'); break;
-                case 'self_sent': messageLine.classList.add('message-type-self'); break;
+                case 'broadcast_msg': messageLine.classList.add('message-type-broadcast-msg'); break;
+                case 'private_msg': messageLine.classList.add('message-type-private-msg'); break;
+                case 'self_sent_broadcast': messageLine.classList.add('message-type-self-sent-broadcast'); break;
+                case 'self_sent_private': messageLine.classList.add('message-type-self-sent-private'); break;
                 default: messageLine.classList.add('message-type-info'); break;
             }
 
             messageLine.textContent = message;
-            messageDisplayArea.appendChild(messageLine);
-            messageDisplayArea.scrollTop = messageDisplayArea.scrollHeight; // Auto-scroll to bottom
+
+            let areaToAppend;
+            if (targetTabName === 'broadcast') {
+                areaToAppend = broadcastChatArea;
+            } else {
+                // For private messages, ensure the private chat area exists
+                if (!privateChatAreas.has(targetTabName)) {
+                    // Automatically open a new private chat tab if a message for it arrives
+                    console.log(`displayMessage: Creating new private tab for ${targetTabName} due to incoming message.`);
+                    openPrivateChatTab(targetTabName); 
+                }
+                areaToAppend = privateChatAreas.get(targetTabName);
+            }
+            
+            areaToAppend.appendChild(messageLine);
+            areaToAppend.scrollTop = areaToAppend.scrollHeight; // Auto-scroll to bottom
+            console.log(`displayMessage: Message "${message}" displayed in tab: ${targetTabName}`);
         }
 
         // Function to update the list of online users
@@ -277,64 +361,63 @@
                 if (user === myUsername) {
                     listItem.classList.add('self'); // Style for self
                 } else {
-                    // Add click listener for private chat selection
+                    // Add click listener to open/switch to private chat tab
                     listItem.addEventListener('click', () => {
-                        // Clear previous selection
-                        document.querySelectorAll('.user-list-item').forEach(item => {
-                            item.classList.remove('selected');
-                        });
-                        listItem.classList.add('selected'); // Mark as selected
-                        privateRecipient = user;
-                        privateChatToggle.classList.add('active'); // Activate toggle button visually
-                        privateChatToggle.dataset.active = 'true';
-                        selectedRecipientLabel.textContent = `Chatting with: ${privateRecipient}`;
-                        displayMessage(`CLIENT: Private messages will now be sent to ${privateRecipient}.`, 'info');
+                        console.log(`User clicked: ${user}. Attempting to open/switch private chat.`);
+                        openPrivateChatTab(user);
                     });
-
-                    // If this user was previously selected for private chat, re-select them
-                    if (user === privateRecipient) {
-                        listItem.classList.add('selected');
-                    }
                 }
                 onlineUsersList.appendChild(listItem);
             });
+            console.log("Updated online users list:", users);
         }
 
-        // Function to send messages (broadcast or private)
+        // Function to send messages (broadcast or private via active tab)
         function sendMessage() {
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 const message = messageInput.value.trim();
                 if (message === '') return;
 
-                let fullMessage;
-                if (privateChatToggle.dataset.active === 'true' && privateRecipient) {
-                    fullMessage = `/msg ${privateRecipient} ${message}`;
-                    // For private messages, display immediately as "self-sent"
-                    displayMessage(`You (to ${privateRecipient}): ${message}`, 'self_sent');
+                if (activeTab === 'broadcast') {
+                    console.log(`sendMessage: Sending broadcast: ${message}`);
+                    websocket.send(message); // Send message to server for broadcast
+                    // DO NOT display broadcast messages immediately here.
+                    // The server will echo it back to all clients (including self)
+                    // and it will be displayed by the onmessage handler, preventing duplicates.
                 } else {
-                    fullMessage = message; // No special prefix for broadcast
-                    // For broadcast messages, DO NOT display immediately.
-                    // Let the server echo it back, and it will be displayed by onmessage handler.
+                    // Send as private message to the active private chat recipient
+                    const fullMessage = `/msg ${activeTab} ${message}`;
+                    console.log(`sendMessage: Sending private message to ${activeTab}: ${message}`);
+                    websocket.send(fullMessage); // Send private message command to server
+                    // Display immediately in the active private chat tab (recipient's tab)
+                    displayMessage(`You (to ${activeTab}): ${message}`, 'self_sent_private', activeTab);
                 }
-                websocket.send(fullMessage);
                 messageInput.value = ''; // Clear input field
             } else {
-                displayMessage("Not connected to server. Please connect first.", 'error');
+                displayMessage("Not connected to server. Please connect first.", 'error', 'broadcast');
             }
         }
 
         // Function to disconnect from the server
         function disconnectClient() {
             if (websocket) {
+                console.log("Disconnecting WebSocket...");
                 websocket.close(); // Attempt to close if not already closed
             }
             websocket = null;
             myUsername = '';
-            privateRecipient = null;
             onlineUsersList.innerHTML = '';
-            privateChatToggle.classList.remove('active');
-            privateChatToggle.dataset.active = 'false';
-            selectedRecipientLabel.textContent = "Chatting: BROADCAST";
+            
+            // Clear and reset all private chat tabs and areas
+            privateChatAreas.forEach((area, username) => {
+                const tabButton = document.getElementById(`tabButton_${username}`);
+                if (tabButton) tabButton.remove();
+                if (area) area.remove();
+            });
+            privateChatAreas.clear();
+            
+            switchTab('broadcast'); // Go back to broadcast tab
+            broadcastChatArea.innerHTML = '<div class="message-line message-type-info">Welcome to the chat! Enter your name and server IP to connect.</div><div class="message-line message-type-info">Click an online user to start a private chat.</div>';
 
             // Update UI state
             connectButton.disabled = false;
@@ -342,9 +425,93 @@
             usernameInput.disabled = false;
             ipAddressInput.disabled = false;
             messageInput.disabled = true;
-            sendButton.disabled = true;
+            sendMessageButton.disabled = true;
             usernameInput.focus();
-            displayMessage("Disconnected from server.", 'info');
+            displayMessage("Disconnected from server.", 'info', 'broadcast');
+            console.log("Client disconnected and UI reset.");
+        }
+
+        // Function to switch between chat tabs
+        function switchTab(tabName) {
+            console.log(`switchTab: Attempting to switch to tab: ${tabName}`);
+            // Deactivate all tab buttons and hide all chat areas
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.chat-area').forEach(area => area.classList.remove('active'));
+
+            // Activate the selected tab button and show its corresponding chat area
+            const selectedTabButton = document.getElementById(`tabButton_${tabName}`);
+            const selectedChatArea = document.getElementById(`chatArea_${tabName}`);
+
+            if (selectedTabButton && selectedChatArea) {
+                selectedTabButton.classList.add('active');
+                selectedChatArea.classList.add('active');
+                activeTab = tabName; // Update active tab state
+                // Scroll to bottom of the activated chat area
+                selectedChatArea.scrollTop = selectedChatArea.scrollHeight;
+                console.log(`switchTab: Successfully switched to tab: ${tabName}. Active tab is now: ${activeTab}`);
+            } else {
+                console.error(`switchTab: Attempted to switch to non-existent tab or area missing: ${tabName}`);
+            }
+        }
+
+        // Function to open a private chat tab (or switch to it if already open)
+        function openPrivateChatTab(username) {
+            if (username === myUsername) {
+                displayMessage("CLIENT: You cannot private chat yourself.", 'info', 'broadcast');
+                return;
+            }
+
+            if (!privateChatAreas.has(username)) {
+                console.log(`openPrivateChatTab: Creating new tab for ${username}`);
+                // Create new tab button
+                const tabButton = document.createElement('button');
+                tabButton.id = `tabButton_${username}`;
+                tabButton.classList.add('tab-button');
+                tabButton.setAttribute('data-tab-name', username);
+                tabButton.textContent = username;
+                tabButton.addEventListener('click', () => switchTab(username)); // Attach click listener
+
+                // Add close button to private tabs
+                const closeButton = document.createElement('button');
+                closeButton.classList.add('tab-close-button');
+                closeButton.textContent = 'x';
+                closeButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent tab switch when closing
+                    console.log(`Closing tab for: ${username}`);
+                    closePrivateChatTab(username);
+                });
+                tabButton.appendChild(closeButton);
+                tabsContainer.appendChild(tabButton);
+
+                // Create new private chat area
+                const chatArea = document.createElement('div');
+                chatArea.id = `chatArea_${username}`;
+                chatArea.classList.add('chat-area');
+                chatDisplayWrapper.appendChild(chatArea); // Append to the wrapper for chat areas
+
+                privateChatAreas.set(username, chatArea); // Store reference
+                displayMessage(`CLIENT: New private chat opened with ${username}.`, 'info', 'broadcast');
+            }
+            switchTab(username); // Switch to the newly created or existing tab
+        }
+
+        // Function to close a private chat tab
+        function closePrivateChatTab(username) {
+            if (privateChatAreas.has(username)) {
+                console.log(`closePrivateChatTab: Closing tab for ${username}`);
+                const tabButton = document.getElementById(`tabButton_${username}`);
+                const chatArea = privateChatAreas.get(username);
+
+                if (tabButton) tabButton.remove();
+                if (chatArea) chatArea.remove();
+                privateChatAreas.delete(username);
+
+                displayMessage(`CLIENT: Private chat with ${username} closed.`, 'info', 'broadcast');
+
+                if (activeTab === username) {
+                    switchTab('broadcast'); // If closed tab was active, switch to broadcast
+                }
+            }
         }
 
         // Event Listeners
@@ -353,21 +520,21 @@
             const username = usernameInput.value.trim();
 
             if (ip === '') {
-                displayMessage("Please enter a server IP address.", 'error');
+                displayMessage("Please enter a server IP address.", 'error', 'broadcast');
                 return;
             }
             if (username === '') {
-                displayMessage("Please enter your name.", 'error');
+                displayMessage("Please enter your name.", 'error', 'broadcast');
                 return;
             }
 
             if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
-                displayMessage("Already connected or connecting.", 'info');
+                displayMessage("Already connected or connecting.", 'info', 'broadcast');
                 return;
             }
 
             myUsername = username; // Set client's username
-            displayMessage(`Attempting to connect to ws://${ip}:12345 as ${myUsername}...`, 'info');
+            displayMessage(`Attempting to connect to ws://${ip}:12345 as ${myUsername}...`, 'info', 'broadcast');
             
             // Disable UI during connection attempt
             connectButton.disabled = true;
@@ -376,103 +543,108 @@
             ipAddressInput.disabled = true;
 
             try {
-                // This client connects to a basic WebSocket server (ws://).
-                // If you want a secure connection (wss://), the server side would need
-                // to implement WebSocket Secure (WSS) protocol, which is more complex
-                // than a simple SSL/TLS socket server.
                 websocket = new WebSocket(`ws://${ip}:12345`);
+                console.log("WebSocket connection initiated.");
 
                 websocket.onopen = () => {
-                    displayMessage("Connected to server! Sending username...", 'info');
+                    displayMessage("Connected to server! Sending username...", 'info', 'broadcast');
                     websocket.send(myUsername); // Send username immediately after connection
                     // Enable chat UI
                     messageInput.disabled = false;
-                    sendButton.disabled = false;
+                    sendMessageButton.disabled = false;
                     disconnectButton.disabled = false;
                     messageInput.focus();
+                    console.log("WebSocket opened and username sent.");
                 };
 
                 websocket.onmessage = (event) => {
                     const rawMessage = event.data;
-                    console.log("Received:", rawMessage); // For debugging
+                    console.log("Received raw message:", rawMessage); // For debugging
 
                     // Process incoming messages based on server prefixes
                     if (rawMessage.startsWith("BROADCAST:")) {
                         const content = rawMessage.substring("BROADCAST:".length);
-                        displayMessage(content, 'broadcast');
+                        displayMessage(content, 'broadcast_msg', 'broadcast');
+                        console.log("Processed as BROADCAST.");
                     } else if (rawMessage.startsWith("PRIVATE_MSG:")) {
+                        // PRIVATE_MSG:sender: message
                         const content = rawMessage.substring("PRIVATE_MSG:".length);
-                        displayMessage(`PRIVATE from ${content}`, 'private_msg');
+                        // Extract sender and message part
+                        const senderMatch = content.match(/^([^:]+):(.*)/);
+                        const sender = senderMatch ? senderMatch[1] : 'Unknown';
+                        const messagePart = senderMatch ? senderMatch[2].trim() : content;
+
+                        console.log(`Received PRIVATE_MSG. Sender: ${sender}, Message: ${messagePart}`);
+
+                        // FIX: If this private message is an echo of my own sent message, ignore it
+                        // because it was already displayed by the `sendMessage` function in the correct tab.
+                        // However, server must echo private messages back for this to work consistently.
+                        // If server does NOT echo private messages, then display it here (but only if it's from `myUsername` AND for the active tab)
+                        if (sender === myUsername) {
+                             console.log("Ignoring own private message echo from server (already displayed locally).");
+                             return;
+                        }
+
+                        // This is a private message from another user to me.
+                        // Display it in the private chat tab for that sender.
+                        displayMessage(`${sender}: ${messagePart}`, 'private_msg', sender);
+                        console.log(`Processed as PRIVATE_MSG from another user. Target tab: ${sender}`);
                     } else if (rawMessage.startsWith("USER_LIST_UPDATE:")) {
                         const userListString = rawMessage.substring("USER_LIST_UPDATE:".length);
                         updateOnlineUsersList(userListString);
+                        console.log("Processed as USER_LIST_UPDATE.");
                     } else if (rawMessage.startsWith("SERVER: ")) {
-                        displayMessage(rawMessage, 'server_info');
+                        displayMessage(rawMessage, 'server_info', 'broadcast');
+                        console.log("Processed as SERVER info.");
                     } else {
-                        // Fallback for any other unexpected messages
-                        displayMessage(`RAW: ${rawMessage}`, 'info');
+                        displayMessage(`RAW: ${rawMessage}`, 'info', 'broadcast');
+                        console.log("Processed as RAW/unknown message.");
                     }
                 };
 
                 websocket.onclose = (event) => {
-                    displayMessage(`Disconnected from server. Code: ${event.code}, Reason: ${event.reason || 'N/A'}`, 'info');
+                    displayMessage(`Disconnected from server. Code: ${event.code}, Reason: ${event.reason || 'N/A'}`, 'info', 'broadcast');
                     disconnectClient();
+                    console.log("WebSocket closed.");
                 };
 
                 websocket.onerror = (error) => {
-                    displayMessage("WebSocket Error. Check console for details.", 'error');
+                    displayMessage("WebSocket Error. Check console for details.", 'error', 'broadcast');
                     console.error("WebSocket error:", error);
                     disconnectClient();
                 };
 
             } catch (e) {
-                displayMessage(`Failed to create WebSocket: ${e.message}`, 'error');
+                displayMessage(`Failed to create WebSocket: ${e.message}`, 'error', 'broadcast');
                 console.error("WebSocket creation error:", e);
                 disconnectClient();
             }
         });
 
-        disconnectButton.addEventListener('click', disconnectClient);
-
-        sendButton.addEventListener('click', sendMessage);
-
+        // Message sending and Enter key (shared input)
+        sendMessageButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
 
-        privateChatToggle.addEventListener('click', () => {
-            const isActive = privateChatToggle.dataset.active === 'true';
-            if (isActive) {
-                // Toggling off private chat
-                privateChatToggle.classList.remove('active');
-                privateChatToggle.dataset.active = 'false';
-                privateRecipient = null;
-                document.querySelectorAll('.user-list-item').forEach(item => {
-                    if (item.classList.contains('selected')) {
-                        item.classList.remove('selected');
-                    }
-                });
-                selectedRecipientLabel.textContent = "Chatting: BROADCAST";
-                displayMessage("CLIENT: Switched to broadcast chat.", 'info');
-            } else {
-                // Toggling on private chat - require a recipient
-                if (!privateRecipient || privateRecipient === myUsername) {
-                    displayMessage("Please select a user from the list for private chat first.", 'error');
-                } else {
-                    privateChatToggle.classList.add('active');
-                    privateChatToggle.dataset.active = 'true';
-                    selectedRecipientLabel.textContent = `Chatting with: ${privateRecipient}`;
-                    displayMessage(`CLIENT: Private messages will now be sent to ${privateRecipient}.`, 'info');
-                }
-            }
-        });
+        disconnectButton.addEventListener('click', disconnectClient);
 
         // Ensure disconnection when the browser tab is closed
         window.addEventListener('beforeunload', () => {
             disconnectClient();
         });
+
+        // Initialize default tab display and attach listener to broadcast tab button
+        const broadcastTabButton = document.getElementById('tabButton_broadcast');
+        if (broadcastTabButton) {
+            broadcastTabButton.addEventListener('click', () => {
+                console.log("Broadcast tab button clicked.");
+                switchTab('broadcast');
+            });
+        }
+        switchTab('broadcast'); // Ensure broadcast is active on load
     </script>
 </body>
 </html>
